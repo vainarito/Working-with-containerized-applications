@@ -46,7 +46,7 @@ document.getElementById("taskForm").addEventListener("submit", async e => {
   const form = document.getElementById("taskForm");
   const formData = new FormData(form);
 
-  await fetch("${API_URL}/api/tasks", {
+  await fetch(`${API_URL}/api/tasks`, {
     method: "POST",
     body: formData
   });

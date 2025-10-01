@@ -21,6 +21,10 @@ def create_app(config_class=Config):
     # Register blueprints
     app.register_blueprint(tasks_bp)
 
+    @app.get("/health")
+    def health():
+        return {"status": "ок"}, 200
+
     # Create tables
     with app.app_context():
         db.create_all()
