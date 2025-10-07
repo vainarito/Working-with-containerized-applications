@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+      - name: wait-for-mysql
+        image: busybox:1.28
+        command: ['sh', '-c', 'until nc -z mysql.default.svc.cluster.local 3306; do sleep 2; done;']
+      - name: wait-for-redis
+        image: busybox:1.28
+        command: ['sh', '-c', 'until nc -z redis.default.svc.cluster.local 6379; do sleep 2; done;']
+      containers:
+      - name: backend
+        image: {{ .Values.backend.image }}
+        imagePullPolicy: {{ .Values.backend.imagePullPolicy | default "IfNotPresent" }}
+        env:
+        - name: MYSQL_HOST
+          value: {{ .Values.backend.env.MYSQL_HOST | quote }}
+        - name: MYSQL_PORT
+          value: {{ .Values.backend.env.MYSQL_PORT | quote }}
+        - name: MYSQL_USER
+          value: {{ .Values.backend.env.MYSQL_USER | quote }}
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_PASSWORD
+        - name: MYSQL_DB
+          value: {{ .Values.backend.env.MYSQL_DB | quote }}
+        - name: REDIS_HOST
+          value: {{ .Values.backend.env.REDIS_HOST | quote }}
+        - name: REDIS_PORT
+          value: {{ .Values.backend.env.REDIS_PORT | quote }}
+        - name: FE_HOST
+          value: {{ .Values.backend.env.FE_HOST | quote }}
+        ports:
+        - containerPort: {{ .Values.backend.port }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.backend.port }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.backend.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
