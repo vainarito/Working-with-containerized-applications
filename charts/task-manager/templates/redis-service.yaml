@@ -1,10 +1,15 @@
+{{- $redisName := include "task-manager.fullnameSuffix" (dict "root" . "suffix" "redis") -}}
 apiVersion: v1
-kind: Service 
+kind: Service
 metadata:
-  name: redis
+  name: {{ $redisName }}
+  labels:
+    {{- include "task-manager.componentLabels" (dict "root" . "component" "redis") | nindent 4 }}
 spec:
   selector:
-    app: redis
+    {{- include "task-manager.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
   ports:
-  - port: {{ .Values.redis.port }}
-    targetPort: {{ .Values.redis.port }}
+    - name: redis
+      port: {{ .Values.redis.port }}
+      targetPort: redis

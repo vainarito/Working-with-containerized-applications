@@ -17,4 +17,4 @@ class Config:
     CACHE_DEFAULT_TIMEOUT = 60
 
     # CORS
-    FE_HOST = os.getenv("FE_HOST")
+    FE_HOST = os.getenv("FE_HOST", "localhost:8080")

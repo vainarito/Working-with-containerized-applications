@@ -1,10 +1,15 @@
+{{- $mysqlName := include "task-manager.fullnameSuffix" (dict "root" . "suffix" "mysql") -}}
 apiVersion: v1
 kind: Service
 metadata:
-  name: mysql
+  name: {{ $mysqlName }}
+  labels:
+    {{- include "task-manager.componentLabels" (dict "root" . "component" "mysql") | nindent 4 }}
 spec:
   selector:
-    app: mysql
+    {{- include "task-manager.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
   ports:
-  - port: 3306
-    targetPort: 3306
+    - name: mysql
+      port: 3306
+      targetPort: mysql

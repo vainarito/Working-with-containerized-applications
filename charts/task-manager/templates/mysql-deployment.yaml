@@ -1,56 +1,88 @@
+{{- $mysqlName := include "task-manager.fullnameSuffix" (dict "root" . "suffix" "mysql") -}}
+{{- $mysqlSecret := printf "%s-secret" $mysqlName -}}
+{{- $pvcName := printf "%s-pvc" $mysqlName -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mysql
+  name: {{ $mysqlName }}
+  labels:
+    {{- include "task-manager.componentLabels" (dict "root" . "component" "mysql") | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.mysql.replicaCount }}
   selector:
     matchLabels:
-      app: mysql
+      {{- include "task-manager.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mysql
   template:
     metadata:
       labels:
-        app: mysql
+        {{- include "task-manager.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mysql
     spec:
+      serviceAccountName: {{ include "task-manager.serviceAccountName" . }}
       containers:
-      - name: mysql
-        image: {{ .Values.mysql.image }}
-        imagePullPolicy: {{ .Values.mysql.imagePullPolicy | default "IfNotPresent" }}
-        env:
-        - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: MYSQL_ROOT_PASSWORD
-        - name: MYSQL_DATABASE
-          value: {{ .Values.mysql.database | quote }}
-        ports:
-        - containerPort: 3306
-        livenessProbe:
-          exec:
-            command: ["sh", "-c", "mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD"]
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          exec:
-            command: ["sh", "-c", "mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD"]
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        volumeMounts:
-        - name: mysql-storage
-          mountPath: /var/lib/mysql
+        - name: mysql
+          image: {{ printf "%s:%s" .Values.mysql.image.repository .Values.mysql.image.tag }}
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $mysqlSecret }}
+                  key: mysql-root-password
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.database | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.mysql.user | quote }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $mysqlSecret }}
+                  key: mysql-password
+          ports:
+            - name: mysql
+              containerPort: 3306
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          {{- if .Values.mysql.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          {{- end }}
+          {{- with .Values.mysql.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if .Values.mysql.persistence.enabled }}
       volumes:
-      - name: mysql-storage
-        persistentVolumeClaim:
-          claimName: mysql-pvc
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $pvcName }}
+      {{- end }}
+
+{{- if .Values.mysql.persistence.enabled }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mysql-pvc
+  name: {{ $pvcName }}
+  labels:
+    {{- include "task-manager.componentLabels" (dict "root" . "component" "mysql") | nindent 4 }}
 spec:
   accessModes:
-    - ReadWriteOnce
+    {{- toYaml .Values.mysql.persistence.accessModes | nindent 4 }}
   resources:
     requests:
-      storage: 1Gi
+      storage: {{ .Values.mysql.persistence.size }}
+  {{- with .Values.mysql.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end }}

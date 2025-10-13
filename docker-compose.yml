@@ -59,6 +59,8 @@ services:
     build: ./frontend
     environment:
       API_URL: http://localhost:8080
+      INTERNAL_BACKEND_HOST: backend
+      INTERNAL_BACKEND_PORT: "5000"
     ports:
       - "8080:80"
     depends_on:

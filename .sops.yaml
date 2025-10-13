@@ -1,0 +1,3 @@
+creation_rules:
+  - pgp: "BE124F84CFDE0121E603F15501D1842FDD27B578"
+    path_regex: charts/task-manager/values\.prod(\.enc)?\.ya?ml$

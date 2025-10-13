@@ -1,30 +1,41 @@
+{{- $redisName := include "task-manager.fullnameSuffix" (dict "root" . "suffix" "redis") -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
+  name: {{ $redisName }}
+  labels:
+    {{- include "task-manager.componentLabels" (dict "root" . "component" "redis") | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.redis.replicaCount | default 1 }}
   selector:
     matchLabels:
-      app: redis
+      {{- include "task-manager.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
   template:
     metadata:
       labels:
-        app: redis
+        {{- include "task-manager.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
     spec:
+      serviceAccountName: {{ include "task-manager.serviceAccountName" . }}
       containers:
-      - name: redis
-        image: {{ .Values.redis.image }}
-        imagePullPolicy: {{ .Values.redis.imagePullPolicy | default "IfNotPresent" }}
-        ports:
-        - containerPort: {{ .Values.redis.port }}
-        livenessProbe:
-          exec:
-            command: ["redis-cli", "ping"]
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          exec:
-            command: ["redis-cli", "ping"]
-          initialDelaySeconds: 3
-          periodSeconds: 5
+        - name: redis
+          image: {{ printf "%s:%s" .Values.redis.image.repository .Values.redis.image.tag }}
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.port }}
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          {{- with .Values.redis.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

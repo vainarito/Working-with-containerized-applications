@@ -1,35 +1,67 @@
+{{- $frontendName := include "task-manager.fullnameSuffix" (dict "root" . "suffix" "frontend") -}}
+{{- $backendName := include "task-manager.fullnameSuffix" (dict "root" . "suffix" "backend") -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
+  name: {{ $frontendName }}
+  labels:
+    {{- include "task-manager.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.frontend.replicaCount }}
   selector:
     matchLabels:
-      app: frontend
+      {{- include "task-manager.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
   template:
     metadata:
       labels:
-        app: frontend
+        {{- include "task-manager.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
     spec:
+      serviceAccountName: {{ include "task-manager.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
-      - name: frontend
-        image: {{ .Values.frontend.image }}
-        imagePullPolicy: {{ .Values.frontend.imagePullPolicy | default "IfNotPresent" }}
-        env:
-        - name: API_URL
-          value: {{ .Values.frontend.env.API_URL | quote }}
-        ports:
-        - containerPort: {{ .Values.frontend.port }}
-        livenessProbe:
-          httpGet:
-            path: /
-            port: {{ .Values.frontend.port }}
-          initialDelaySeconds: 10
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: {{ .Values.frontend.port }}
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: frontend
+          image: {{ printf "%s:%s" .Values.frontend.image.repository .Values.frontend.image.tag }}
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          env:
+            - name: API_URL
+              value: {{ .Values.frontend.env.API_URL | default "" | quote }}
+            - name: INTERNAL_BACKEND_HOST
+              value: {{ .Values.frontend.env.INTERNAL_BACKEND_HOST | default $backendName | quote }}
+            - name: INTERNAL_BACKEND_PORT
+              value: {{ .Values.frontend.env.INTERNAL_BACKEND_PORT | default "5000" | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontend.service.port }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontend.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontend.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          {{- with .Values.frontend.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.frontend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
